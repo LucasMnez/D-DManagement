@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PLAYER
+  ADMIN
+}
+
+enum ReservationStatus {
+  PENDING
+  PAID
+  CONFIRMED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         UserRole      @default(PLAYER)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  reservations Reservation[]
+}
+
+model Campaign {
+  id           String        @id @default(cuid())
+  title        String
+  description  String
+  seatLimit    Int
+  priceInCents Int
+  startsAt     DateTime
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  reservations Reservation[]
+}
+
+model Reservation {
+  id         String            @id @default(cuid())
+  userId     String
+  campaignId String
+  status     ReservationStatus @default(PENDING)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  user       User              @relation(fields: [userId], references: [id])
+  campaign   Campaign          @relation(fields: [campaignId], references: [id])
+  payment    Payment?
+}
+
+model Payment {
+  id               String        @id @default(cuid())
+  reservationId    String        @unique
+  amountInCents    Int
+  provider         String
+  providerChargeId String?
+  pixCopyPaste     String?
+  qrCodeBase64     String?
+  status           PaymentStatus @default(PENDING)
+  paidAt           DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  reservation      Reservation   @relation(fields: [reservationId], references: [id])
+  financialLogs    FinancialLog[]
+}
+
+model FinancialLog {
+  id          String   @id @default(cuid())
+  paymentId   String?
+  event       String
+  amountInCents Int?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  payment     Payment? @relation(fields: [paymentId], references: [id])
+
+  @@index([createdAt])
+  @@index([event])
+}
